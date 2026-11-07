@@ -33,6 +33,7 @@ class QLoRAConfig:
     lora_dropout: float = 0.0
     bias: str = "none"
     use_gradient_checkpointing: str = "unsloth"
+    use_rslora: bool = True
     target_modules: list[str] = None  # type: ignore
 
     # Trainer parameters
@@ -43,6 +44,7 @@ class QLoRAConfig:
     dataset_num_proc: int = 8
     max_steps: int = 350
     learning_rate: float = 2e-4
+    lr_scheduler_type: str = "cosine"
     warmup_steps: int = 20
     weight_decay: float = 0.01
 
@@ -115,6 +117,7 @@ def run_smoke_test(
     output_dir: Path,
     skip_vram_check: bool = False,
     template_path: Path | None = None,
+    use_hf: bool = False,
 ) -> dict[str, Any]:
     """Execute pre-flight smoke test verifying dataset, VRAM guard, and Modelfile rendering."""
     print("Executing QLoRA pre-flight smoke test...")
@@ -128,7 +131,7 @@ def run_smoke_test(
         print("[VRAM GUARD] Bypassed via --skip-vram-check.")
 
     # 2. Verify Dataset
-    records = load_or_generate_dataset(dataset_path)
+    records = load_or_generate_dataset(dataset_path, use_hf=use_hf)
     print(f"[DATASET CHECK] Loaded & validated {len(records)} records from {dataset_path}.")
 
     # 3. Verify ChatML formatting on all records
@@ -148,10 +151,10 @@ def run_smoke_test(
     # 5. Hyperparameter confirmation
     print(f"[CONFIG CHECK] Verified 4-bit QLoRA hyperparameters for {config.base_model}:")
     print(f"  max_seq_length:       {config.max_seq_length}")
-    print(f"  lora_r / alpha:       {config.r} / {config.lora_alpha}")
+    print(f"  lora_r / alpha:       {config.r} / {config.lora_alpha} (rslora={config.use_rslora})")
     print(f"  target_modules:       {len(config.target_modules)} modules")
     print(f"  batch_size / accum:   {config.per_device_train_batch_size} / {config.gradient_accumulation_steps}")
-    print(f"  optim:                {config.optim} (bf16={config.bf16})")
+    print(f"  optim / scheduler:    {config.optim} / {config.lr_scheduler_type} (bf16={config.bf16})")
     print(f"  max_steps:            {config.max_steps}")
 
     return {
@@ -168,12 +171,13 @@ def train_and_export(
     dataset_path: Path,
     output_dir: Path,
     skip_vram_check: bool = False,
+    use_hf: bool = False,
 ) -> None:
     """Run full Unsloth QLoRA fine-tuning and export to Q4_K_M GGUF."""
     if not skip_vram_check:
         check_vram(enforce=True)
 
-    records = load_or_generate_dataset(dataset_path)
+    records = load_or_generate_dataset(dataset_path, use_hf=use_hf)
 
     try:
         from unsloth import FastLanguageModel  # type: ignore
@@ -203,6 +207,7 @@ def train_and_export(
         lora_dropout=config.lora_dropout,
         bias=config.bias,
         use_gradient_checkpointing=config.use_gradient_checkpointing,
+        use_rslora=config.use_rslora,
     )
 
     formatted_texts = [format_training_record(r) for r in records]
@@ -213,6 +218,7 @@ def train_and_export(
         per_device_train_batch_size=config.per_device_train_batch_size,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         learning_rate=config.learning_rate,
+        lr_scheduler_type=config.lr_scheduler_type,
         optim=config.optim,
         bf16=config.bf16,
         max_steps=config.max_steps,
@@ -245,12 +251,22 @@ def train_and_export(
         quantization_method="q4_k_m",
     )
 
+    # Dynamically resolve exported .gguf file
+    exported_gguf: Path | None = None
+    if gguf_output_dir.is_dir():
+        for candidate in gguf_output_dir.glob("*.gguf"):
+            if candidate.is_file():
+                exported_gguf = candidate
+                break
+    if exported_gguf is None:
+        exported_gguf = gguf_output_dir / "pcompile-q4_k_m.gguf"
+
     # Render Modelfile
     modelfile_path = output_dir / "Modelfile"
     render_modelfile(
         Path("training/Modelfile.template"),
         modelfile_path,
-        gguf_output_dir / "pcompile-q4_k_m.gguf",
+        exported_gguf,
     )
     print(f"QLoRA training and GGUF export complete. Modelfile saved to {modelfile_path}.")
 
@@ -278,6 +294,7 @@ def main() -> None:
             dataset_path=Path(args.dataset),
             output_dir=Path(args.output_dir),
             skip_vram_check=args.skip_vram_check,
+            use_hf=args.use_hf,
         )
     else:
         train_and_export(
@@ -285,6 +302,7 @@ def main() -> None:
             dataset_path=Path(args.dataset),
             output_dir=Path(args.output_dir),
             skip_vram_check=args.skip_vram_check,
+            use_hf=args.use_hf,
         )
 
 

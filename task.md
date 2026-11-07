@@ -33,9 +33,9 @@
 - [x] Phase 4 verification gate & git commit/tag (`phase-4-complete`)
 
 ## Phase 5: Ephemeral "Burst & Purge" CLI (`pcompile`), KV Quantization & Clipboard Pipe (`phase-5-ephemeral-cli`)
-- [ ] Implement ephemeral Ollama client with `keep_alive=0` and dynamic hardware options (`pcompile/cli.py`)
-- [ ] Implement CLI flags (`--step`, `--refine`, `--arch`, `--select`, `--dry-harvest`)
-- [ ] Implement cross-platform clipboard pipe (`wl-copy`, `xclip`, `clip.exe`)
-- [ ] Complete documentation (`README.md`) and package installation verification
-- [ ] Run complete test suite (`pytest`) across all phases
-- [ ] Phase 5 verification gate & git commit/tag (`phase-5-complete`)
+- [x] Implement ephemeral Ollama client with `keep_alive=0` and dynamic hardware options (`pcompile/cli.py`)
+- [x] Implement CLI flags (`--step`, `--refine`, `--arch`, `--select`, `--dry-harvest`)
+- [x] Implement cross-platform clipboard pipe (`wl-copy`, `xclip`, `clip.exe`)
+- [x] Complete documentation (`README.md`) and package installation verification
+- [x] Run complete test suite (`pytest`) across all phases
+- [x] Phase 5 verification gate & git commit/tag (`phase-5-complete`)

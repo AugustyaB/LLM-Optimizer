@@ -438,13 +438,13 @@ ARCHITECT_PROMPTS_BANK = _build_architect_prompts_bank()
 
 
 def synthesize_step_pair(index: int, domain: dict[str, Any]) -> dict[str, Any]:
-    """Generate a 100% unique training pair for STEP mode."""
+    """Generate a 100% unique training pair for STEP mode with clean file paths."""
     phase_from = (index % 5) + 1
     phase_to = phase_from + 1
     topic = domain["topic"]
 
-    evicted = [f"mod_{index}_{f}" for f in domain["files_p1"]]
-    active = [f"mod_{index}_{f}" for f in domain["files_p2"]]
+    evicted = list(domain["files_p1"])
+    active = list(domain["files_p2"])
     invs = [f"Rule {index + 1}: {inv}" for inv in domain["invariants"]]
 
     directive = f"Step Transition #{index + 1}: Advance {topic} execution to Phase {phase_to}."
@@ -483,18 +483,17 @@ def synthesize_step_pair(index: int, domain: dict[str, Any]) -> dict[str, Any]:
 
 
 def synthesize_refine_pair(index: int, domain: dict[str, Any], raw_prompt: str | None = None) -> dict[str, Any]:
-    """Generate a 100% unique training pair for REFINE mode with dynamically inferred edge cases."""
+    """Generate a 100% unique training pair for REFINE mode with dynamically inferred edge cases and clean paths."""
     prompt_str = raw_prompt or REFINE_PROMPTS_BANK[index % len(REFINE_PROMPTS_BANK)]
     phase_num = (index % 5) + 1
     topic = domain["topic"]
 
-    evicted = [f"pkg_{index}_{f}" for f in domain["files_p1"]]
-    active = [f"pkg_{index}_{f}" for f in domain["files_p2"]]
+    evicted = list(domain["files_p1"])
+    active = list(domain["files_p2"])
     invs = [f"Constraint {index + 1}: {inv}" for inv in domain["invariants"]]
 
     # Dynamically call infer_coding_edge_cases
     edge_cases = infer_coding_edge_cases(prompt_str, active)
-    # Ensure domain-specific uniqueness
     edge_cases.append(f"Domain Specific Invariant: Enforce verified boundary safety for {topic}.")
 
     input_text = (
@@ -536,13 +535,47 @@ def synthesize_refine_pair(index: int, domain: dict[str, Any], raw_prompt: str |
 
 
 def synthesize_architect_pair(index: int, domain: dict[str, Any], raw_mandate: str | None = None) -> dict[str, Any]:
-    """Generate a 100% unique training pair for ARCHITECT mode."""
+    """Generate a 100% unique training pair for ARCHITECT mode with clean file paths."""
     mandate_str = raw_mandate or ARCHITECT_PROMPTS_BANK[index % len(ARCHITECT_PROMPTS_BANK)]
     topic = domain["topic"]
 
-    active = [f"arch_{index}_{f}" for f in domain["files_p2"]]
-    evicted = [f"arch_{index}_{f}" for f in domain["files_p1"]]
+    active = list(domain["files_p2"])
+    evicted = list(domain["files_p1"])
     invs = [f"Mandate Rule {index + 1}: {inv}" for inv in domain["invariants"]]
+
+    input_text = (
+        f"[MODE: ARCHITECT - SPEC #{index + 1}]\n"
+        f"Architecture Domain: {topic}\n"
+        f"System Mandate: {mandate_str}\n"
+        f"Available Subsystems: {', '.join(evicted + active)}\n"
+        f"Governing Constraints: {'; '.join(invs)}"
+    )
+
+    inv_lines = "\n".join(f"- {inv}" for inv in invs)
+    evict_lines = "\n".join(f"- {f}" for f in sorted(evicted))
+    active_lines = "\n".join(f"- {f}" for f in sorted(active))
+
+    output_text = (
+        f"### [ROLE & ARCHITECTURAL MANDATE]\n"
+        f"You are the Principal Autonomous Systems Architect designing blueprint #{index + 1} for {topic}.\n"
+        f"Mandate: {mandate_str}\n\n"
+        f"### [COMPILER DIRECTIVES & PHASE BLUEPRINT SPECIFICATION]\n"
+        f"Every phase generated in the architectural plan MUST strictly declare the following four invariants:\n"
+        f"1. Allowed_Working_Set: Explicit, comma-separated list of files permitted to be created or edited.\n"
+        f"2. Evict_On_Complete: Files from prior phases that must be immediately evicted from context upon phase exit.\n"
+        f"3. Inferred_Edge_Cases: Explicit technical constraints (memory streaming, thread safety, boundary checks, zero-idle invariants).\n"
+        f"4. Verification_Gate: Exact, executable test commands (e.g. pytest suite) and mandatory criteria required before closing the phase.\n\n"
+        f"### [PROJECT CONTEXT & CURRENT PHASE TOPOLOGY]\n"
+        f"[EVICT_FROM_WORKING_SET]\n{evict_lines}\n\n"
+        f"[ACTIVE_PHASE_FILES_ONLY]\n{active_lines}\n\n"
+        f"[PINNED_USER_INVARIANTS]\n{inv_lines}"
+    )
+
+    return {
+        "instruction": "Compile a master blueprint prompt for system architecture in ARCHITECT mode.",
+        "input": input_text,
+        "output": output_text,
+    }
 
     input_text = (
         f"[MODE: ARCHITECT - SPEC #{index + 1}]\n"
