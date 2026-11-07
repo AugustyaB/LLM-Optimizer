@@ -26,11 +26,11 @@
 - [x] Phase 3 verification gate & git commit/tag (`phase-3-complete`)
 
 ## Phase 4: Hardware-Isolated Unsloth 4-Bit QLoRA Training & GGUF Export Pipeline (`phase-4-qlora-pipeline`)
-- [ ] Implement VRAM guard checking nvidia-smi with threshold enforcement (`training/vram_guard.py`)
-- [ ] Implement Unsloth 4-bit QLoRA trainer with RTX 4070 hyperparameters and `--smoke-test` (`training/train_qlora.py`)
-- [ ] Implement automated Q4_K_M GGUF export and Ollama Modelfile generation (`training/Modelfile.template`)
-- [ ] Write unit tests for VRAM guard, dataset loading, and smoke test configuration (`tests/test_phase4_training.py`)
-- [ ] Phase 4 verification gate & git commit/tag (`phase-4-complete`)
+- [x] Implement VRAM guard checking nvidia-smi with threshold enforcement (`training/vram_guard.py`)
+- [x] Implement Unsloth 4-bit QLoRA trainer with RTX 4070 hyperparameters and `--smoke-test` (`training/train_qlora.py`)
+- [x] Implement automated Q4_K_M GGUF export and Ollama Modelfile generation (`training/Modelfile.template`)
+- [x] Write unit tests for VRAM guard, dataset loading, and smoke test configuration (`tests/test_phase4_training.py`)
+- [x] Phase 4 verification gate & git commit/tag (`phase-4-complete`)
 
 ## Phase 5: Ephemeral "Burst & Purge" CLI (`pcompile`), KV Quantization & Clipboard Pipe (`phase-5-ephemeral-cli`)
 - [ ] Implement ephemeral Ollama client with `keep_alive=0` and dynamic hardware options (`pcompile/cli.py`)
