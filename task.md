@@ -10,12 +10,12 @@
 - [x] Phase 1 verification gate & git commit/tag (`phase-1-complete`)
 
 ## Phase 2: CPU Harvester, 35-Turn Two-Zone Sliding Window, File Evictor & 5-Turn Rule Pinner (`phase-2-telemetry-engine`)
-- [ ] Implement JSONL log parser with hard 35-turn cutoff (`pcompile/harvester.py`)
-- [ ] Implement two-zone sliding window: Zone A compressed ledger and Zone B high-res context (`pcompile/harvester.py`)
-- [ ] Implement active working-set file evictor with `[EVICT_FROM_WORKING_SET]` and `[ACTIVE_PHASE_FILES_ONLY]` (`pcompile/evictor.py`)
-- [ ] Implement 5-turn user invariant extractor for anti-amnesia pinner (`[PINNED_USER_INVARIANTS]`)
-- [ ] Write unit tests for truncation, eviction, and invariant pinning (`tests/test_phase2_harvester.py`)
-- [ ] Phase 2 verification gate & git commit/tag (`phase-2-complete`)
+- [x] Implement JSONL log parser with hard 35-turn cutoff (`pcompile/harvester.py`)
+- [x] Implement two-zone sliding window: Zone A compressed ledger and Zone B high-res context (`pcompile/harvester.py`)
+- [x] Implement active working-set file evictor with `[EVICT_FROM_WORKING_SET]` and `[ACTIVE_PHASE_FILES_ONLY]` (`pcompile/evictor.py`)
+- [x] Implement 5-turn user invariant extractor for anti-amnesia pinner (`[PINNED_USER_INVARIANTS]`)
+- [x] Write unit tests for truncation, eviction, and invariant pinning (`tests/test_phase2_harvester.py`)
+- [x] Phase 2 verification gate & git commit/tag (`phase-2-complete`)
 
 ## Phase 3: Operational Mode Router (STEP, REFINE, ARCHITECT) & Dataset Synthesis Engine (`phase-3-modes-dataset`)
 - [ ] Implement STEP mode prompt builder with phase transition directives (`pcompile/modes.py`)

@@ -43,6 +43,17 @@ def create_jsonl_log(log_path: Path, num_turns: int = 10, first_user_prompt: str
             f.write(json.dumps(record) + "\n")
 
 
+def create_rich_session_log(
+    log_path: Path,
+    records: list[dict[str, Any]],
+) -> None:
+    """Helper to write custom turn records directly to transcript.jsonl."""
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "w", encoding="utf-8") as f:
+        for r in records:
+            f.write(json.dumps(r) + "\n")
+
+
 @pytest.fixture
 def mock_brain_dir(tmp_path: Path) -> Path:
     """Fixture creating a mock Antigravity brain directory with realistic sessions."""

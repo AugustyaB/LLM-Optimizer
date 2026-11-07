@@ -24,6 +24,10 @@ models/
 # Antigravity temporary data
 .antigravity_cache/
 
+# Temporary runner and audit scripts
+gemini-code-*.sh
+*_audit.txt
+
 # OS specific files
 .DS_Store
 Thumbs.db
