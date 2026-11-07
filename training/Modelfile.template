@@ -1,6 +1,6 @@
 # ===========================================================================
 # Ollama Modelfile for pcompile (Q4_K_M QLoRA Compiled Prompt Adapter)
-# Target Hardware: RTX 4070 Laptop (8GB VRAM) / Ryzen 9 7940HS
+# Target Model: unsloth/Qwen3-8B-unsloth-bnb-4bit (RTX 4070 8GB VRAM)
 # ===========================================================================
 
 FROM {{ GGUF_PATH }}
@@ -9,18 +9,20 @@ FROM {{ GGUF_PATH }}
 PARAMETER temperature 0.2
 PARAMETER top_p 0.95
 PARAMETER num_ctx 4096
-PARAMETER num_predict 500
+PARAMETER num_predict 600
 PARAMETER stop "<|im_end|>"
 PARAMETER stop "<|endoftext|>"
+PARAMETER stop "</think>"
 
-# ChatML Template
+# ChatML Template with Qwen3 Reasoning Suppression (/no_think and empty think block)
 TEMPLATE """{{ if .System }}<|im_start|>system
 {{ .System }}<|im_end|>
 {{ end }}{{ if .Prompt }}<|im_start|>user
-{{ .Prompt }}<|im_end|>
+{{ .Prompt }} /no_think<|im_end|>
 {{ end }}<|im_start|>assistant
-{{ .Response }}<|im_end|>
+<think>
+</think>{{ .Response }}<|im_end|>
 """
 
 # Zero-Idle Ephemeral Compiler System Mandate
-SYSTEM """You are pcompile, an ephemeral prompt and context compiler for Google Antigravity and Gemini 3.8 Flash. Output ONLY compiled prompt specifications in STEP, REFINE, or ARCHITECT mode. Never include conversational filler, meta-chatter, apologies, or preambles. Output raw structured markdown blocks with pinned user invariants anchored at the bottom."""
+SYSTEM """You are pcompile, an ephemeral prompt and context compiler for Google Antigravity and Gemini 3.8 Flash. Output ONLY compiled prompt specifications in STEP, REFINE, ARCHITECT, or HANDOFF mode. Never include conversational filler, meta-chatter, apologies, or preambles. Output raw structured markdown blocks with pinned user invariants anchored at the bottom."""

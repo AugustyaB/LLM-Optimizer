@@ -64,6 +64,12 @@ MODE_CONFIGS: dict[str, ModeConfig] = {
         num_predict=900,
         description="Master blueprint compiler with phased dependencies and strict working sets.",
     ),
+    "HANDOFF": ModeConfig(
+        name="HANDOFF",
+        num_ctx=4096,
+        num_predict=600,
+        description="Clean-slate session bootstrapper when turns exceed threshold or user pivots.",
+    ),
 }
 
 

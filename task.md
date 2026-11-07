@@ -39,3 +39,15 @@
 - [x] Complete documentation (`README.md`) and package installation verification
 - [x] Run complete test suite (`pytest`) across all phases
 - [x] Phase 5 verification gate & git commit/tag (`phase-5-complete`)
+
+## Phase 6: Architectural Perfection, Multi-Language Signatures & Handoff Mode (`phase-6-perfection`)
+- [x] Multi-language code signature extractor for Python (AST), Java, TypeScript, and SQL (`pcompile/signature_extractor.py`)
+- [x] Dual-directory markdown resolution prioritizing `project_dir` with `session_dir` fallback (`pcompile/evictor.py`)
+- [x] HANDOFF mode (`--handoff` / `-ho`) for clean session bootstrap directives (`pcompile/config.py`, `pcompile/modes.py`)
+- [x] Hybrid Sandwich compiler post-processor strictly enforcing CPU-verified file locks and invariants (`pcompile/sandwich.py`)
+- [x] Anti-monolith refactor with dedicated domain bank (`training/domain_bank.py`, all modules < 280 lines)
+- [x] Synthesize 600 unique records across STEP, REFINE, ARCHITECT, and HANDOFF modes with zero synthetic numbering in outputs (`training/synthesize_dataset.py`)
+- [x] Upgrade base model to `unsloth/Qwen3-8B-unsloth-bnb-4bit` with `/no_think` suppression and response-only training loss (`training/train_qlora.py`, `training/Modelfile.template`)
+- [x] Wire `--handoff`, high-turn warning (>35 turns), and hybrid sandwich into ephemeral CLI (`pcompile/cli.py`)
+- [x] Write comprehensive unit test suite and verify 100% pass rate (`tests/test_phase6_perfection.py`)
+- [x] Phase 6 verification gate & git commit/tag (`phase-6-complete`)
