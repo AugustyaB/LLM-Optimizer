@@ -18,12 +18,12 @@
 - [x] Phase 2 verification gate & git commit/tag (`phase-2-complete`)
 
 ## Phase 3: Operational Mode Router (STEP, REFINE, ARCHITECT) & Dataset Synthesis Engine (`phase-3-modes-dataset`)
-- [ ] Implement STEP mode prompt builder with phase transition directives (`pcompile/modes.py`)
-- [ ] Implement REFINE mode prompt builder with edge case inference and file eviction locks (`pcompile/modes.py`)
-- [ ] Implement ARCHITECT mode prompt builder for blueprint creation and overhaul (`pcompile/modes.py`)
-- [ ] Build dataset synthesis engine generating 500 validated training pairs in `dataset.jsonl` (`training/synthesize_dataset.py`)
-- [ ] Write unit tests for mode formatting, token budgets, and dataset schema (`tests/test_phase3_modes.py`)
-- [ ] Phase 3 verification gate & git commit/tag (`phase-3-complete`)
+- [x] Implement STEP mode prompt builder with phase transition directives (`pcompile/modes.py`)
+- [x] Implement REFINE mode prompt builder with edge case inference and file eviction locks (`pcompile/modes.py`)
+- [x] Implement ARCHITECT mode prompt builder for blueprint creation and overhaul (`pcompile/modes.py`)
+- [x] Build dataset synthesis engine generating 500 validated training pairs in `dataset.jsonl` (`training/synthesize_dataset.py`)
+- [x] Write unit tests for mode formatting, token budgets, and dataset schema (`tests/test_phase3_modes.py`)
+- [x] Phase 3 verification gate & git commit/tag (`phase-3-complete`)
 
 ## Phase 4: Hardware-Isolated Unsloth 4-Bit QLoRA Training & GGUF Export Pipeline (`phase-4-qlora-pipeline`)
 - [ ] Implement VRAM guard checking nvidia-smi with threshold enforcement (`training/vram_guard.py`)

@@ -64,21 +64,41 @@ def _normalize_path_str(raw_path: str, root_dir: Path | None = None) -> str:
 
 
 def parse_plan_phases(plan_content: str) -> dict[int, list[str]]:
-    """Extract declared Allowed Working Set files for each phase from implementation_plan.md."""
+    """Extract declared Allowed Working Set files for each phase from implementation_plan.md.
+
+    Matches both `Allowed Working Set` and `Allowed_Working_Set`, supporting both
+    inline lists (e.g. `- **Allowed_Working_Set:** `f1.py`, `f2.py``) and
+    multiline blocks following a heading.
+    """
     phase_files: dict[int, list[str]] = {}
-    pattern = re.compile(
-        r"###\s*Phase\s*(\d+)[\s\S]*?Allowed Working Set[^\n]*\n+([^\n]+)",
-        re.IGNORECASE,
-    )
-    for match in pattern.finditer(plan_content):
-        phase_num = int(match.group(1))
-        raw_list = match.group(2)
-        # Extract all code-quoted or comma-separated tokens
-        extracted = [
-            _normalize_path_str(token)
-            for token in re.findall(r"[`']?([a-zA-Z0-9_\-./\\]+\.[a-zA-Z0-9_\-]+)[`']?", raw_list)
-        ]
-        phase_files[phase_num] = extracted
+    phase_blocks = re.split(r"(?=^###\s*Phase\s*\d+)", plan_content, flags=re.MULTILINE)
+
+    for block in phase_blocks:
+        stripped = block.strip()
+        phase_match = re.search(r"^###\s*Phase\s*(\d+)", stripped, flags=re.MULTILINE)
+        if not phase_match:
+            continue
+        phase_num = int(phase_match.group(1))
+
+        # Match Allowed Working Set or Allowed_Working_Set
+        # Either inline after colon: `...Allowed[ _]Working[ _]Set[^:\n]*:\s*([^\n]+)`
+        # Or following on next line: `...Allowed[ _]Working[ _]Set[^\n]*\n+([^\n#]+)`
+        pattern = re.compile(
+            r"Allowed[ _]Working[ _]Set[^:\n]*(?::\s*([^\n]+)|\n+([^\n#]+))",
+            re.IGNORECASE,
+        )
+        extracted: list[str] = []
+        for match in pattern.finditer(stripped):
+            raw_list = (match.group(1) or match.group(2) or "").strip()
+            tokens = [
+                _normalize_path_str(token)
+                for token in re.findall(r"[`']?([a-zA-Z0-9_\-./\\]+\.[a-zA-Z0-9_\-]+)[`']?", raw_list)
+            ]
+            extracted.extend(tokens)
+
+        if extracted:
+            phase_files[phase_num] = sorted(set(extracted))
+
     return phase_files
 
 

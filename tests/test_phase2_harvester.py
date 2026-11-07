@@ -237,6 +237,22 @@ class TestActiveWorkingSetFileEvictor:
         assert "pcompile/session_selector.py" in plan_files[1]
         assert "pcompile/harvester.py" in plan_files[2]
 
+    def test_parse_plan_phases_inline_allowed_working_set(self) -> None:
+        """Verify parsing of inline Allowed_Working_Set: syntax on the same line after a colon."""
+        inline_plan = """
+### Phase 1: Core IO
+- **Allowed_Working_Set:** `pyproject.toml`, `pcompile/session_selector.py`
+- Other metadata here...
+
+### Phase 2: Engine
+- **Allowed_Working_Set:** `pcompile/harvester.py`, `pcompile/evictor.py`
+"""
+        plan_files = parse_plan_phases(inline_plan)
+        assert 1 in plan_files
+        assert 2 in plan_files
+        assert plan_files[1] == ["pcompile/session_selector.py", "pyproject.toml"]
+        assert plan_files[2] == ["pcompile/evictor.py", "pcompile/harvester.py"]
+
     def test_completed_files_evicted_while_active_files_retained(self) -> None:
         """Completed phase files must appear in [EVICT_FROM_WORKING_SET], while active phase files stay in [ACTIVE_PHASE_FILES_ONLY]."""
         accessed_files = {
