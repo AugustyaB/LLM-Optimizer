@@ -20,6 +20,7 @@ from training.domain_bank import (
     HANDOFF_PROMPTS_BANK,
     REFINE_PROMPTS_BANK,
 )
+from training.hf_extractor import load_hf_pairs_with_constraints
 
 _STEP_ACTIONS = [
     "Advance execution from Phase {p_from} to Phase {p_to} targeting `{target}` with verification.",
@@ -33,25 +34,9 @@ _STEP_ACTIONS = [
 
 
 def load_hf_coding_prompts(count: int = 500) -> list[str]:
-    """Attempt to load real diverse coding instructions from Hugging Face if datasets is available."""
-    try:
-        from datasets import load_dataset  # type: ignore
-
-        for repo_id in ("mlabonne/Evol-Instruct-Python-1k", "nickrosh/Evol-Instruct-Code-80k-v1"):
-            try:
-                ds = load_dataset(repo_id, split="train", streaming=True)
-                prompts: list[str] = []
-                for item in ds:
-                    val = item.get("instruction") or item.get("prompt") or item.get("text") or ""
-                    if isinstance(val, str) and len(val.strip()) > 30:
-                        prompts.append(val.strip().replace("\r\n", " "))
-                        if len(prompts) >= count:
-                            return prompts
-            except Exception:
-                continue
-    except Exception:
-        pass
-    return []
+    """Attempt to load real diverse coding instructions from Hugging Face."""
+    pairs = load_hf_pairs_with_constraints(count=count)
+    return [p["instruction"] for p in pairs]
 
 
 def synthesize_step_pair(index: int, domain: dict[str, Any]) -> dict[str, Any]:
@@ -83,14 +68,23 @@ def synthesize_step_pair(index: int, domain: dict[str, Any]) -> dict[str, Any]:
             "input": input_text, "output": output_text}
 
 
-def synthesize_refine_pair(index: int, domain: dict[str, Any], raw_prompt: str | None = None) -> dict[str, Any]:
+def synthesize_refine_pair(
+    index: int,
+    domain: dict[str, Any],
+    raw_prompt: str | None = None,
+    hf_constraints: list[str] | None = None,
+) -> dict[str, Any]:
     """Generate a unique training pair for REFINE mode with dynamic edge cases and clean paths."""
     prompt_str = raw_prompt or REFINE_PROMPTS_BANK[index % len(REFINE_PROMPTS_BANK)]
     phase_num, topic = (index % 5) + 1, domain["topic"]
     evicted, active = list(domain["files_p1"]), list(domain["files_p2"])
-    edge_cases = infer_coding_edge_cases(prompt_str, active) + [
-        f"Domain Boundary Safety: Enforce verified runtime constraints for {topic}."
-    ]
+
+    if hf_constraints:
+        edge_cases = list(hf_constraints) + [f"Domain Boundary Safety: Enforce verified runtime constraints for {topic}."]
+    else:
+        edge_cases = infer_coding_edge_cases(prompt_str, active) + [
+            f"Domain Boundary Safety: Enforce verified runtime constraints for {topic}."
+        ]
 
     input_text = (
         f"[MODE: REFINE]\nDomain: {topic} (Task Variant {index})\nTarget Phase: Phase {phase_num}\n"
@@ -185,13 +179,14 @@ def generate_dataset(
     """Generate validated training pairs with 100% unique inputs and outputs."""
     actual_handoff = 100 if handoff_count is None and step_count == 150 and refine_count == 200 and architect_count == 150 else (handoff_count or 0)
     records: list[dict[str, Any]] = []
-    hf_prompts = load_hf_coding_prompts(count=refine_count) if use_hf else []
+    hf_pairs = load_hf_pairs_with_constraints(count=refine_count) if use_hf else []
 
     for idx in range(step_count):
         records.append(synthesize_step_pair(idx, DOMAINS[idx % len(DOMAINS)]))
     for idx in range(refine_count):
-        raw_p = hf_prompts[idx] if idx < len(hf_prompts) else None
-        records.append(synthesize_refine_pair(idx, DOMAINS[idx % len(DOMAINS)], raw_prompt=raw_p))
+        raw_p = hf_pairs[idx]["instruction"] if idx < len(hf_pairs) else None
+        raw_c = hf_pairs[idx]["constraints"] if idx < len(hf_pairs) else None
+        records.append(synthesize_refine_pair(idx, DOMAINS[idx % len(DOMAINS)], raw_prompt=raw_p, hf_constraints=raw_c))
     for idx in range(architect_count):
         records.append(synthesize_architect_pair(idx, DOMAINS[idx % len(DOMAINS)]))
     for idx in range(actual_handoff):
@@ -244,7 +239,7 @@ def main() -> None:
     """CLI entry point for dataset synthesis and validation."""
     parser = argparse.ArgumentParser(description="Synthesize and validate QLoRA prompt compiler dataset.")
     parser.add_argument("-o", "--output", default="training/dataset.jsonl", help="Target output JSONL path")
-    parser.add_argument("--use-hf", action="store_true", help="Fetch prompts from Hugging Face if available")
+    parser.add_argument("--use-hf", action="store_true", help="Fetch prompts and extract constraints from Hugging Face")
     args = parser.parse_args()
 
     start_t = time.perf_counter()

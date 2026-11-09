@@ -51,3 +51,15 @@
 - [x] Wire `--handoff`, high-turn warning (>35 turns), and hybrid sandwich into ephemeral CLI (`pcompile/cli.py`)
 - [x] Write comprehensive unit test suite and verify 100% pass rate (`tests/test_phase6_perfection.py`)
 - [x] Phase 6 verification gate & git commit/tag (`phase-6-complete`)
+
+## Phase 7: Deep Hugging Face Dataset Extractor & LLM Verification Suite (`phase-7-llm-verification`)
+- [x] Deep Hugging Face prompt & solution constraint extractor (`training/hf_extractor.py`)
+- [x] Ingest both instruction and reference code to infer task-specific constraints (exceptions, memory bounds, locks, type safety)
+- [x] Force-regeneration of dataset on disk when `--use-hf` is enabled (`training/train_qlora.py`)
+- [x] Leading `<think>...</think>` reasoning tag stripping in hybrid sandwich compiler (`pcompile/sandwich.py`)
+- [x] Training metrics telemetry (`outputs/training_metrics.json`) recording initial/final loss, steps, and model metadata (`training/train_qlora.py`)
+- [x] Automated 4-gate model verification suite and scorecard CLI (`training/evaluate_model.py`)
+- [x] Side-by-side `--compare` mode in ephemeral CLI comparing CPU baseline against Neural output (`pcompile/cli.py`)
+- [x] Comprehensive unit test suite with 100% pass rate (`tests/test_phase7_evaluation.py`)
+- [x] Strict anti-monolith verification keeping all modules under 280 lines
+- [x] Phase 7 verification gate & git commit/tag (`phase-7-complete`)

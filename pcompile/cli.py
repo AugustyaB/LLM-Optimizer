@@ -1,7 +1,7 @@
 """Ephemeral 'Burst & Purge' CLI entry point, Ollama client (keep_alive=0), and clipboard pipe.
 
 Why: Exposes zero-overhead CLI with <50ms CPU harvester, ephemeral Ollama inference,
-hybrid sandwich locking, and cross-platform clipboard export.
+hybrid sandwich locking, side-by-side comparison, and cross-platform clipboard export.
 """
 
 from __future__ import annotations
@@ -120,6 +120,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("-s", "--select", action="store_true", help="Interactive session selector.")
     parser.add_argument("--dry-harvest", action="store_true", help="Run CPU harvester and evictor only (<50 ms).")
     parser.add_argument("--offline", action="store_true", help="Bypass Ollama inference call.")
+    parser.add_argument("--compare", action="store_true", help="Side-by-side comparison of CPU baseline vs Neural output.")
     parser.add_argument("--no-clipboard", action="store_true", help="Do not pipe output to system clipboard.")
     parser.add_argument("--model", type=str, default="pcompile", help="Ollama model name (default: pcompile).")
     parser.add_argument("--ollama-url", type=str, default="http://localhost:11434/api/generate", help="Ollama endpoint.")
@@ -155,16 +156,31 @@ def main(argv: list[str] | None = None) -> int:
         mode=mode, session_dir=session_path, project_dir=Path.cwd(), raw_prompt=effective_prompt
     )
 
-    if args.dry_harvest or args.offline:
-        final_output = compiled.prompt_text
+    if args.compare:
+        cpu_out = compiled.prompt_text
+        neural_out = query_ephemeral_ollama(compiled=compiled, model=args.model, url=args.ollama_url)
+        sep = "=" * 70
+        cmp_view = (
+            f"{sep}\n[1] DETERMINISTIC CPU BASELINE (--dry-harvest)\n{sep}\n"
+            f"{cpu_out}\n\n"
+            f"{sep}\n[2] TRAINED QWEN3-8B NEURAL OUTPUT (Hybrid Sandwich)\n{sep}\n"
+            f"{neural_out}\n{sep}"
+        )
+        sys.stdout.write(cmp_view + "\n")
+        sys.stdout.flush()
+        if not args.no_clipboard:
+            copy_to_clipboard(neural_out)
     else:
-        final_output = query_ephemeral_ollama(compiled=compiled, model=args.model, url=args.ollama_url)
+        if args.dry_harvest or args.offline:
+            final_output = compiled.prompt_text
+        else:
+            final_output = query_ephemeral_ollama(compiled=compiled, model=args.model, url=args.ollama_url)
 
-    sys.stdout.write(final_output + "\n")
-    sys.stdout.flush()
+        sys.stdout.write(final_output + "\n")
+        sys.stdout.flush()
 
-    if not args.no_clipboard:
-        copy_to_clipboard(final_output)
+        if not args.no_clipboard:
+            copy_to_clipboard(final_output)
 
     print_telemetry_footer(
         mode=compiled.mode,

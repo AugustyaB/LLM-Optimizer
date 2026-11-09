@@ -18,6 +18,9 @@ def apply_hybrid_sandwich(llm_response: str, compiled: CompiledPrompt) -> str:
     """
     cleaned_response = llm_response.strip()
 
+    # Why: Strip any reasoning tags (<think>...</think>) before post-processing
+    cleaned_response = re.sub(r"<think>[\s\S]*?</think>", "", cleaned_response).strip()
+
     # Why: Strip any partial or hallucinated context blocks so ground truth is never corrupted.
     for block_header in (
         r"\[EVICT_FROM_WORKING_SET\][\s\S]*?(?=\n\[|$)",
