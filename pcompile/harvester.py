@@ -44,6 +44,7 @@ class HarvestResult:
     zone_a_ledger: list[str]
     zone_b_turns: list[str]
     pinned_invariants: list[str]
+    telemetry_health: str = "CLEAN_PASSING"
 
     def render_prompt_context(self) -> str:
         """Render the complete harvested telemetry block for prompt compilation."""
@@ -184,16 +185,45 @@ def extract_pinned_invariants(turns: list[TurnRecord], lookback_user_turns: int 
     return invariants
 
 
+def deduplicate_ledger_lines(lines: list[str]) -> list[str]:
+    """Collapse consecutive identical or matching Zone A compressed ledger lines into '<line> (xN)'."""
+    if not lines:
+        return []
+    result: list[str] = []
+    prev = lines[0]
+    count = 1
+    for line in lines[1:]:
+        is_same = (line == prev) or (re.sub(r"^T\d+\s*", "", line) == re.sub(r"^T\d+\s*", "", prev))
+        if is_same:
+            count += 1
+        else:
+            result.append(f"{prev} (x{count})" if count > 1 else prev)
+            prev = line
+            count = 1
+    result.append(f"{prev} (x{count})" if count > 1 else prev)
+    return result
+
+
+def compute_telemetry_health(turns: list[TurnRecord]) -> str:
+    """Inspect the last 5 turns (Zone B) for error status or failure traces."""
+    for turn in turns:
+        if turn.status.upper() == "ERROR" or "Traceback" in turn.content or "FAILED" in turn.content:
+            return "ERROR_DETECTED"
+    return "CLEAN_PASSING"
+
+
 def harvest_session_telemetry(session_dir: Path, mode: str = "REFINE") -> HarvestResult:
     """Full CPU harvesting pipeline for an Antigravity session directory."""
     turns = load_transcript_turns(session_dir)
     zone_a_turns, zone_b_turns = apply_sliding_window(turns)
     harvested_window = zone_a_turns + zone_b_turns
+    zone_a_raw = [compress_zone_a_turn(t) for t in zone_a_turns]
 
     return HarvestResult(
         total_turns=len(turns),
         harvested_turns=len(harvested_window),
-        zone_a_ledger=[compress_zone_a_turn(t) for t in zone_a_turns],
+        zone_a_ledger=deduplicate_ledger_lines(zone_a_raw),
         zone_b_turns=[format_zone_b_turn(t, mode=mode) for t in zone_b_turns],
         pinned_invariants=extract_pinned_invariants(harvested_window),
+        telemetry_health=compute_telemetry_health(zone_b_turns),
     )

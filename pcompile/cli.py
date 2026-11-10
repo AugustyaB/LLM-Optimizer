@@ -16,7 +16,7 @@ import urllib.request
 from pathlib import Path
 
 from pcompile.modes import CompiledPrompt, compile_prompt
-from pcompile.sandwich import apply_hybrid_sandwich
+from pcompile.sandwich import apply_hybrid_sandwich, validate_llm_output
 from pcompile.session_selector import extract_session_title, select_session
 
 
@@ -78,6 +78,15 @@ def query_ephemeral_ollama(
             data = json.loads(response.read().decode("utf-8"))
             gen_text = data.get("response", "").strip()
             if gen_text:
+                mode_val = "REFINE"
+                try:
+                    mode_val = str(compiled.mode)
+                except Exception:
+                    pass
+                if hasattr(compiled, "eviction_result"):
+                    if not validate_llm_output(gen_text, mode=mode_val):
+                        sys.stderr.write("[FALLBACK: LLM output failed schema check; using verified CPU prompt]\n")
+                        return getattr(compiled, "prompt_text", "")
                 try:
                     return apply_hybrid_sandwich(gen_text, compiled)
                 except Exception:
@@ -120,6 +129,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("-s", "--select", action="store_true", help="Interactive session selector.")
     parser.add_argument("--dry-harvest", action="store_true", help="Run CPU harvester and evictor only (<50 ms).")
     parser.add_argument("--offline", action="store_true", help="Bypass Ollama inference call.")
+    parser.add_argument("--force-llm", action="store_true", help="Force LLM generation in STEP mode (bypasses CPU fast-path).")
     parser.add_argument("--compare", action="store_true", help="Side-by-side comparison of CPU baseline vs Neural output.")
     parser.add_argument("--no-clipboard", action="store_true", help="Do not pipe output to system clipboard.")
     parser.add_argument("--model", type=str, default="pcompile", help="Ollama model name (default: pcompile).")
@@ -171,7 +181,8 @@ def main(argv: list[str] | None = None) -> int:
         if not args.no_clipboard:
             copy_to_clipboard(neural_out)
     else:
-        if args.dry_harvest or args.offline:
+        is_cpu_fast_path = (mode == "STEP" and not args.force_llm) or args.dry_harvest or args.offline
+        if is_cpu_fast_path:
             final_output = compiled.prompt_text
         else:
             final_output = query_ephemeral_ollama(compiled=compiled, model=args.model, url=args.ollama_url)

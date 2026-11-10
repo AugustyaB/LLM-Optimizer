@@ -241,4 +241,5 @@ class TestDatasetSynthesisEngine:
             assert "instruction" in r
             assert "input" in r
             assert "output" in r
-            assert "[PINNED_USER_INVARIANTS]" in r["output"]
+            assert "### " in r["output"]
+            assert len(r["output"]) > 50

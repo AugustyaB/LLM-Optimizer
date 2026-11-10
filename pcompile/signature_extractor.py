@@ -138,13 +138,21 @@ def extract_active_file_signatures(
     max_files: int = 5,
     max_sig_per_file: int = 12,
     project_dir: Path | None = None,
+    recently_modified_files: list[str] | None = None,
 ) -> str:
-    """Format up to 5 active files' signatures into a concise prompt block."""
+    """Format up to 5 active files' signatures into a concise prompt block, prioritizing hot files."""
     base = project_dir or root_dir or Path.cwd()
     blocks: list[str] = ["[ACTIVE_FILE_SIGNATURES]"]
     inspected_count = 0
 
-    for rel_path in active_files:
+    ordered_files: list[str] = []
+    seen = set()
+    for f in (recently_modified_files or []) + active_files:
+        if f and f not in seen:
+            seen.add(f)
+            ordered_files.append(f)
+
+    for rel_path in ordered_files:
         full_path = base / rel_path
         if not full_path.is_file():
             continue

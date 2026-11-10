@@ -9,6 +9,23 @@ if TYPE_CHECKING:
     from pcompile.modes import CompiledPrompt
 
 
+CONVERSATIONAL_PREFIXES = ("sure", "here is", "certainly", "i can")
+
+
+def validate_llm_output(llm_response: str, mode: str = "REFINE") -> bool:
+    """Validate that LLM output adheres to prompt schema without conversational filler."""
+    cleaned = re.sub(r"<think>[\s\S]*?</think>", "", llm_response).strip()
+    if not cleaned or len(cleaned) < 40:
+        return False
+
+    cleaned_lower = cleaned.lower()
+    if any(cleaned_lower.startswith(p) for p in CONVERSATIONAL_PREFIXES):
+        return False
+
+    has_header = "### [" in cleaned or (mode.upper() == "STEP" and "### PHASE TRANSITION" in cleaned)
+    return bool(has_header)
+
+
 def apply_hybrid_sandwich(llm_response: str, compiled: CompiledPrompt) -> str:
     """Combine LLM generative output with deterministic CPU-verified working set and invariants.
 
@@ -25,6 +42,7 @@ def apply_hybrid_sandwich(llm_response: str, compiled: CompiledPrompt) -> str:
     for block_header in (
         r"\[EVICT_FROM_WORKING_SET\][\s\S]*?(?=\n\[|$)",
         r"\[ACTIVE_PHASE_FILES_ONLY\][\s\S]*?(?=\n\[|$)",
+        r"\[RECENTLY_MODIFIED_HOT_FILES\][\s\S]*?(?=\n\[|$)",
         r"\[ACTIVE_FILE_SIGNATURES\][\s\S]*?(?=\n\[|$)",
         r"\[PINNED_USER_INVARIANTS\][\s\S]*?(?=\n\[|$)",
     ):

@@ -7,7 +7,7 @@ evicting them to prevent context drift while locking active phase components.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from pcompile.config import EVICTION_LOOKBACK_TURNS
@@ -27,12 +27,16 @@ class EvictionResult:
     evicted_files: list[str]
     active_phase_number: int | None
     completed_phases: list[int]
+    recently_modified_files: list[str] = field(default_factory=list)
 
     def render_block(self) -> str:
         """Render eviction block for inclusion in prompt payloads."""
         evict = "\n".join(f"- {f}" for f in self.evicted_files) if self.evicted_files else "- (none)"
         act = "\n".join(f"- {f}" for f in self.active_files) if self.active_files else "- (none)"
-        return f"[EVICT_FROM_WORKING_SET]\n{evict}\n\n[ACTIVE_PHASE_FILES_ONLY]\n{act}"
+        sections = [f"[EVICT_FROM_WORKING_SET]\n{evict}\n\n[ACTIVE_PHASE_FILES_ONLY]\n{act}"]
+        hot = "\n".join(f"- {f}" for f in self.recently_modified_files) if self.recently_modified_files else "- (none)"
+        sections.append(f"[RECENTLY_MODIFIED_HOT_FILES]\n{hot}")
+        return "\n\n".join(sections)
 
 
 def _normalize_path_str(raw_path: str, root_dir: Path | None = None) -> str:
@@ -100,7 +104,7 @@ def extract_turn_file_operations(
     accessed, modified, recently_mod = set(), set(), set()
 
     for idx, turn in enumerate(recent):
-        is_recent_2 = (len(recent) - 1 - idx) < 2
+        is_recent_5 = (len(recent) - 1 - idx) < 5
         for tc in turn.tool_calls:
             t_name = tc.get("name", "").lower()
             args = tc.get("args", {}) or {}
@@ -111,7 +115,7 @@ def extract_turn_file_operations(
                         accessed.add(norm)
                         if any(w in t_name for w in WRITE_TOOL_NAMES):
                             modified.add(norm)
-                            if is_recent_2:
+                            if is_recent_5:
                                 recently_mod.add(norm)
             if "CommandLine" in args:
                 for match in FILE_PATH_REGEX.findall(str(args["CommandLine"])):
@@ -185,10 +189,12 @@ def evict_working_set_context(
 
     accessed, _, recently_modified = extract_turn_file_operations(turns, lookback_turns=lookback_turns, root_dir=root)
     evicted_list, active_list = classify_working_set_files(accessed, recently_modified, active_files, completed_files)
+    recently_mod_list = sorted({f for f in recently_modified if f and "." in f})
 
     return EvictionResult(
         active_files=active_list,
         evicted_files=evicted_list,
         active_phase_number=active_phase,
         completed_phases=completed_phases,
+        recently_modified_files=recently_mod_list,
     )

@@ -67,9 +67,11 @@ def infer_coding_edge_cases(raw_prompt: str, accessed_files: list[str]) -> list[
     return edge_cases
 
 
-def _format_model_input_payload(instruction: str, mode: str, intent: str, harvest: HarvestResult, sigs: str) -> str:
+def _format_model_input_payload(
+    instruction: str, mode: str, intent: str, harvest: HarvestResult, sigs: str, health: str = "CLEAN_PASSING"
+) -> str:
     """Format exact [INSTRUCTION] / [INPUT] payload matching QLoRA fine-tuning format."""
-    parts = [f"[MODE: {mode}]", f"User Intent: {intent}", "", harvest.render_prompt_context()]
+    parts = [f"[MODE: {mode}]", f"[TELEMETRY_HEALTH: {health}]", f"User Intent: {intent}", "", harvest.render_prompt_context()]
     if sigs:
         parts.extend(["", sigs])
     return f"[INSTRUCTION]\n{instruction}\n\n[INPUT]\n" + "\n".join(parts)
@@ -85,7 +87,7 @@ def build_step_prompt(
     config: ModeConfig = MODE_CONFIGS["STEP"]
     eviction_res = evict_working_set_context(session_dir=session_dir, project_dir=root)
     harvest_res = harvest_session_telemetry(session_dir=session_dir, mode="STEP")
-    sigs = extract_active_file_signatures(eviction_res.active_files, root)
+    sigs = extract_active_file_signatures(eviction_res.active_files, root, recently_modified_files=eviction_res.recently_modified_files)
 
     active_num = eviction_res.active_phase_number or 1
     completed_str = ", ".join(f"Phase {p}" for p in eviction_res.completed_phases) or "None"
@@ -101,6 +103,7 @@ def build_step_prompt(
         "### EXECUTION INVARIANTS",
         f"- Scope Lock: Touch ONLY files declared in [ACTIVE_PHASE_FILES_ONLY] for Phase {active_num}.",
         "- Eviction Lock: Do NOT read, modify, or scaffold files listed in [EVICT_FROM_WORKING_SET].",
+        "- Zero-Scan Lock: Do NOT run broad directory scans (list_dir, find). Anchor directly on [RECENTLY_MODIFIED_HOT_FILES] and [ACTIVE_PHASE_FILES_ONLY].",
         "- Verification Gate: Complete all phase tests with 100% pass rate before requesting verification.",
     ]
     if sigs:
@@ -108,7 +111,9 @@ def build_step_prompt(
     if harvest_res.pinned_invariants:
         lines.extend(["", "[PINNED_USER_INVARIANTS]", *[f"- {i}" for i in harvest_res.pinned_invariants]])
 
-    payload = _format_model_input_payload("Compile Phase-Transition Directive in STEP mode.", "STEP", raw_prompt, harvest_res, sigs)
+    payload = _format_model_input_payload(
+        "Compile Phase-Transition Directive in STEP mode.", "STEP", raw_prompt, harvest_res, sigs, health=harvest_res.telemetry_health
+    )
     return CompiledPrompt("STEP", "\n".join(lines), config.num_ctx, config.num_predict, 0.2, eviction_res, harvest_res, payload, sigs)
 
 
@@ -122,7 +127,7 @@ def build_refine_prompt(
     config: ModeConfig = MODE_CONFIGS["REFINE"]
     eviction_res = evict_working_set_context(session_dir=session_dir, project_dir=root)
     harvest_res = harvest_session_telemetry(session_dir=session_dir, mode="REFINE")
-    sigs = extract_active_file_signatures(eviction_res.active_files, root)
+    sigs = extract_active_file_signatures(eviction_res.active_files, root, recently_modified_files=eviction_res.recently_modified_files)
 
     user_intent = raw_prompt.strip() or "Execute active phase feature enhancements and refine implementation."
     edge_cases = infer_coding_edge_cases(user_intent, eviction_res.active_files)
@@ -137,13 +142,18 @@ def build_refine_prompt(
         f"- Target Phase: Phase {active_phase}",
         "- Architecture Alignment: Enforce zero-idle memory consumption, modularity, and strict context hygiene.",
         "- Scope Guard: Implement changes non-destructively without modifying locked or evicted components.",
+    ]
+    if harvest_res.telemetry_health == "CLEAN_PASSING":
+        lines.append("- Anti-Overcorrection Guard: Telemetry is clean and passing. Do NOT invent phantom bugs, do NOT critique passing code, and do NOT suggest unrequested architectural refactors.")
+    lines.extend([
+        "- Zero-Scan Lock: Do NOT run broad directory scans (list_dir, find). Anchor directly on [RECENTLY_MODIFIED_HOT_FILES] and [ACTIVE_PHASE_FILES_ONLY].",
         "",
         "### [INFERRED CODING EDGE CASES]",
         *[f"- {ec}" for ec in edge_cases],
         "",
         "### [CONTEXT SCOPE & FILE EVICTION LOCK]",
         eviction_res.render_block(),
-    ]
+    ])
     if sigs:
         lines.extend(["", sigs])
     if harvest_res.zone_b_turns:
@@ -151,7 +161,9 @@ def build_refine_prompt(
     if harvest_res.pinned_invariants:
         lines.extend(["", "[PINNED_USER_INVARIANTS]", *[f"- {i}" for i in harvest_res.pinned_invariants]])
 
-    payload = _format_model_input_payload("Compile prompt specification in REFINE mode.", "REFINE", user_intent, harvest_res, sigs)
+    payload = _format_model_input_payload(
+        "Compile prompt specification in REFINE mode.", "REFINE", user_intent, harvest_res, sigs, health=harvest_res.telemetry_health
+    )
     return CompiledPrompt("REFINE", "\n".join(lines), config.num_ctx, config.num_predict, 0.2, eviction_res, harvest_res, payload, sigs)
 
 
@@ -165,7 +177,7 @@ def build_architect_prompt(
     config: ModeConfig = MODE_CONFIGS["ARCHITECT"]
     eviction_res = evict_working_set_context(session_dir=session_dir, project_dir=root)
     harvest_res = harvest_session_telemetry(session_dir=session_dir, mode="ARCHITECT")
-    sigs = extract_active_file_signatures(eviction_res.active_files, root)
+    sigs = extract_active_file_signatures(eviction_res.active_files, root, recently_modified_files=eviction_res.recently_modified_files)
 
     intent = raw_prompt.strip() or "Architect a complete, modular, phased implementation plan for the project."
     lines: list[str] = [
@@ -187,7 +199,9 @@ def build_architect_prompt(
         lines.extend(["", sigs])
     lines.extend(["", "### [HISTORICAL EXECUTION TELEMETRY]", harvest_res.render_prompt_context()])
 
-    payload = _format_model_input_payload("Compile blueprint in ARCHITECT mode.", "ARCHITECT", intent, harvest_res, sigs)
+    payload = _format_model_input_payload(
+        "Compile blueprint in ARCHITECT mode.", "ARCHITECT", intent, harvest_res, sigs, health=harvest_res.telemetry_health
+    )
     return CompiledPrompt("ARCHITECT", "\n".join(lines), config.num_ctx, config.num_predict, 0.2, eviction_res, harvest_res, payload, sigs)
 
 
@@ -201,7 +215,7 @@ def build_handoff_prompt(
     config: ModeConfig = MODE_CONFIGS["HANDOFF"]
     eviction_res = evict_working_set_context(session_dir=session_dir, project_dir=root)
     harvest_res = harvest_session_telemetry(session_dir=session_dir, mode="HANDOFF")
-    sigs = extract_active_file_signatures(eviction_res.active_files, root)
+    sigs = extract_active_file_signatures(eviction_res.active_files, root, recently_modified_files=eviction_res.recently_modified_files)
 
     user_note = raw_prompt.strip() or "Handoff active session state into a clean-slate Turn-0 prompt."
     active_num = eviction_res.active_phase_number or 1
@@ -226,7 +240,9 @@ def build_handoff_prompt(
     else:
         lines.append("- (none)")
 
-    payload = _format_model_input_payload("Compile session bootstrapper in HANDOFF mode.", "HANDOFF", user_note, harvest_res, sigs)
+    payload = _format_model_input_payload(
+        "Compile session bootstrapper in HANDOFF mode.", "HANDOFF", user_note, harvest_res, sigs, health=harvest_res.telemetry_health
+    )
     return CompiledPrompt("HANDOFF", "\n".join(lines), config.num_ctx, config.num_predict, 0.2, eviction_res, harvest_res, payload, sigs)
 
 

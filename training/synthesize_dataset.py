@@ -61,8 +61,8 @@ def synthesize_step_pair(index: int, domain: dict[str, Any]) -> dict[str, Any]:
         f"### EXECUTION INVARIANTS\n"
         f"- Scope Lock: Touch ONLY files declared in [ACTIVE_PHASE_FILES_ONLY] for Phase {p_to}.\n"
         f"- Eviction Lock: Do NOT read, modify, or scaffold files listed in [EVICT_FROM_WORKING_SET].\n"
-        f"- Verification Gate: Complete all phase tests with 100% pass rate before requesting verification.\n\n"
-        f"[PINNED_USER_INVARIANTS]\n" + "\n".join(f"- {inv}" for inv in domain["invariants"])
+        f"- Zero-Scan Lock: Do NOT run broad directory scans (list_dir, find). Anchor directly on [RECENTLY_MODIFIED_HOT_FILES] and [ACTIVE_PHASE_FILES_ONLY].\n"
+        f"- Verification Gate: Complete all phase tests with 100% pass rate before requesting verification."
     )
     return {"instruction": "Compile a drift-proof Phase-Transition Directive for Gemini 3.8 Flash in STEP mode.",
             "input": input_text, "output": output_text}
@@ -74,12 +74,18 @@ def synthesize_refine_pair(
     raw_prompt: str | None = None,
     hf_constraints: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Generate a unique training pair for REFINE mode with dynamic edge cases and clean paths."""
+    """Generate a zero-waste training pair for REFINE mode with anti-overcorrection guard."""
     prompt_str = raw_prompt or REFINE_PROMPTS_BANK[index % len(REFINE_PROMPTS_BANK)]
     phase_num, topic = (index % 5) + 1, domain["topic"]
     evicted, active = list(domain["files_p1"]), list(domain["files_p2"])
+    is_clean = (index % 5 == 0)
+    health_str = "CLEAN_PASSING" if is_clean else ("ERROR_DETECTED" if index % 2 == 1 else "CLEAN_PASSING")
 
-    if hf_constraints:
+    if is_clean:
+        edge_cases = [
+            "Minimal Intervention Lock: Existing telemetry is clean; apply the requested modification directly without over-engineering or altering adjacent routines."
+        ]
+    elif hf_constraints:
         edge_cases = list(hf_constraints) + [f"Domain Boundary Safety: Enforce verified runtime constraints for {topic}."]
     else:
         edge_cases = infer_coding_edge_cases(prompt_str, active) + [
@@ -87,30 +93,37 @@ def synthesize_refine_pair(
         ]
 
     input_text = (
-        f"[MODE: REFINE]\nDomain: {topic} (Task Variant {index})\nTarget Phase: Phase {phase_num}\n"
+        f"[MODE: REFINE]\n[TELEMETRY_HEALTH: {health_str}]\nDomain: {topic} (Task Variant {index})\nTarget Phase: Phase {phase_num}\n"
         f"User Prompt: {prompt_str}\nActive Working Set: {', '.join(active)}\n"
         f"Stale Files to Evict: {', '.join(evicted)}\nActive Constraints: {'; '.join(domain['invariants'])}"
     )
+
+    alignment_rules = [
+        f"- Target Phase: Phase {phase_num} ({topic})",
+        "- Architecture Alignment: Enforce zero-idle memory consumption, modularity, and strict context hygiene.",
+        "- Scope Guard: Implement changes non-destructively without modifying locked or evicted components.",
+    ]
+    if is_clean:
+        alignment_rules.append(
+            "- Anti-Overcorrection Guard: Telemetry is clean and passing. Do NOT invent phantom bugs, do NOT critique passing code, and do NOT suggest unrequested architectural refactors."
+        )
+    alignment_rules.append(
+        "- Zero-Scan Lock: Do NOT run broad directory scans (list_dir, find). Anchor directly on [RECENTLY_MODIFIED_HOT_FILES] and [ACTIVE_PHASE_FILES_ONLY]."
+    )
+
     output_text = (
         f"### [ROLE & OBJECTIVE]\n"
         f"You are the Lead Autonomous Systems Engineer executing precise codebase modifications.\n"
         f"Primary Objective: {prompt_str}\n\n"
-        f"### [INTENT & ARCHITECTURE ALIGNMENT]\n"
-        f"- Target Phase: Phase {phase_num} ({topic})\n"
-        f"- Architecture Alignment: Enforce zero-idle memory consumption, modularity, and strict context hygiene.\n"
-        f"- Scope Guard: Implement changes non-destructively without modifying locked or evicted components.\n\n"
-        f"### [INFERRED CODING EDGE CASES]\n" + "\n".join(f"- {ec}" for ec in edge_cases) + "\n\n"
-        f"### [CONTEXT SCOPE & FILE EVICTION LOCK]\n"
-        f"[EVICT_FROM_WORKING_SET]\n" + "\n".join(f"- {f}" for f in sorted(evicted)) + "\n\n"
-        f"[ACTIVE_PHASE_FILES_ONLY]\n" + "\n".join(f"- {f}" for f in sorted(active)) + "\n\n"
-        f"[PINNED_USER_INVARIANTS]\n" + "\n".join(f"- {inv}" for inv in domain["invariants"])
+        f"### [INTENT & ARCHITECTURE ALIGNMENT]\n" + "\n".join(alignment_rules) + "\n\n"
+        f"### [INFERRED CODING EDGE CASES]\n" + "\n".join(f"- {ec}" for ec in edge_cases)
     )
     return {"instruction": "Compile a structured feature and bug-fix prompt specification in REFINE mode.",
             "input": input_text, "output": output_text}
 
 
 def synthesize_architect_pair(index: int, domain: dict[str, Any], raw_mandate: str | None = None) -> dict[str, Any]:
-    """Generate a unique training pair for ARCHITECT mode with clean blueprint output."""
+    """Generate a zero-waste training pair for ARCHITECT mode with clean blueprint output."""
     mandate_str = raw_mandate or ARCHITECT_PROMPTS_BANK[index % len(ARCHITECT_PROMPTS_BANK)]
     topic, active, evicted = domain["topic"], list(domain["files_p2"]), list(domain["files_p1"])
 
@@ -128,18 +141,14 @@ def synthesize_architect_pair(index: int, domain: dict[str, Any], raw_mandate: s
         f"1. Allowed_Working_Set: Explicit, comma-separated list of files permitted to be created or edited.\n"
         f"2. Evict_On_Complete: Files from prior phases that must be immediately evicted from context upon phase exit.\n"
         f"3. Inferred_Edge_Cases: Explicit technical constraints (memory streaming, thread safety, boundary checks, zero-idle invariants).\n"
-        f"4. Verification_Gate: Exact, executable test commands (e.g. pytest suite) and mandatory criteria required before closing the phase.\n\n"
-        f"### [PROJECT CONTEXT & CURRENT PHASE TOPOLOGY]\n"
-        f"[EVICT_FROM_WORKING_SET]\n" + "\n".join(f"- {f}" for f in sorted(evicted)) + "\n\n"
-        f"[ACTIVE_PHASE_FILES_ONLY]\n" + "\n".join(f"- {f}" for f in sorted(active)) + "\n\n"
-        f"[PINNED_USER_INVARIANTS]\n" + "\n".join(f"- {inv}" for inv in domain["invariants"])
+        f"4. Verification_Gate: Exact, executable test commands (e.g. pytest suite) and mandatory criteria required before closing the phase."
     )
     return {"instruction": "Compile a master blueprint prompt for system architecture in ARCHITECT mode.",
             "input": input_text, "output": output_text}
 
 
 def synthesize_handoff_pair(index: int, domain: dict[str, Any], raw_prompt: str | None = None) -> dict[str, Any]:
-    """Generate a unique training pair for HANDOFF mode to reset drift and bootstrap a fresh session."""
+    """Generate a zero-waste training pair for HANDOFF mode to reset drift and bootstrap a fresh session."""
     prompt_str = raw_prompt or HANDOFF_PROMPTS_BANK[index % len(HANDOFF_PROMPTS_BANK)]
     topic, turn_count = domain["topic"], 36 + (index % 30)
     evicted, active = list(domain["files_p1"]), list(domain["files_p2"])
@@ -158,11 +167,7 @@ def synthesize_handoff_pair(index: int, domain: dict[str, Any], raw_prompt: str 
         f"### [SESSION CONTEXT & PROGRESS SUMMARY]\n"
         f"- Completed Milestones: Phase 1 is fully verified and closed.\n"
         f"- Current State: Execution reached turn {turn_count}; prior context is pruned to prevent drift.\n"
-        f"- Fresh Session Invariant: Resume directly from active phase files; do NOT re-execute closed work.\n\n"
-        f"### [CONTEXT SCOPE & FILE EVICTION LOCK]\n"
-        f"[EVICT_FROM_WORKING_SET]\n" + "\n".join(f"- {f}" for f in sorted(evicted)) + "\n\n"
-        f"[ACTIVE_PHASE_FILES_ONLY]\n" + "\n".join(f"- {f}" for f in sorted(active)) + "\n\n"
-        f"[PINNED_USER_INVARIANTS]\n" + "\n".join(f"- {inv}" for inv in domain["invariants"])
+        f"- Fresh Session Invariant: Resume directly from active phase files; do NOT re-execute closed work."
     )
     return {"instruction": "Compile a clean session handoff and context bootstrap directive in HANDOFF mode.",
             "input": input_text, "output": output_text}
@@ -219,15 +224,19 @@ def validate_dataset(records: list[dict[str, Any]]) -> dict[str, Any]:
         if "STEP mode" in inst:
             counts["step"] += 1
             assert "### PHASE TRANSITION DIRECTIVE" in out and "[EVICT_FROM_WORKING_SET]" in out
+            assert "[PINNED_USER_INVARIANTS]" not in out
         elif "REFINE mode" in inst:
             counts["refine"] += 1
             assert "[ROLE & OBJECTIVE]" in out and "[INFERRED CODING EDGE CASES]" in out
+            assert "[EVICT_FROM_WORKING_SET]" not in out and "[PINNED_USER_INVARIANTS]" not in out
         elif "ARCHITECT mode" in inst:
             counts["architect"] += 1
             assert "Allowed_Working_Set" in out and "Evict_On_Complete" in out
+            assert "[EVICT_FROM_WORKING_SET]" not in out and "[PINNED_USER_INVARIANTS]" not in out
         elif "HANDOFF mode" in inst:
             counts["handoff"] += 1
             assert "[HANDOFF & FRESH SESSION BOOTSTRAP DIRECTIVE]" in out
+            assert "[EVICT_FROM_WORKING_SET]" not in out and "[PINNED_USER_INVARIANTS]" not in out
         else:
             raise ValueError(f"Unknown instruction mode at {idx}: {inst}")
 

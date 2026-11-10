@@ -67,7 +67,8 @@ Use when you want to proceed to the next phase in `task.md` or `implementation_p
 ```bash
 pcompile --step
 ```
-- **Context Window:** 2048 tokens (`num_predict: 250`).
+- **CPU Fast-Path:** Executes in `< 20 ms` via deterministic CPU resolution by default without waking Ollama or consuming GPU cycles.
+- **Optional `--force-llm`:** Pass `--force-llm` to force neural compilation even in STEP mode.
 - **Output:** A compact ~120-word Phase-Transition Directive locking working set to active phase files, evicting completed files, and anchoring pinned user invariants.
 
 ### 2. REFINE Mode (`--refine` / `-r` or default)
@@ -121,6 +122,23 @@ pcompile --dry-harvest "Refine memory allocator"
 ---
 
 ## Architectural Highlights
+
+### Zero-Waste LLM Trimming & Hybrid Sandwich (`pcompile/sandwich.py`)
+The QLoRA model is trained to generate **only high-intelligence creative sections** (`[ROLE & OBJECTIVE]`, `[INTENT & ARCHITECTURE ALIGNMENT]`, `[INFERRED CODING EDGE CASES]`), eliminating token waste on deterministic blocks. The Hybrid Sandwich post-processor deterministically attaches ground truth:
+1. Strips reasoning tags (`<think>...</think>`) and any hallucinated file blocks.
+2. Validates output schema via `validate_llm_output()` (circuit breaker fallbacks to CPU prompt if malformed or chatty).
+3. Appends CPU-verified `[EVICT_FROM_WORKING_SET]`, `[ACTIVE_PHASE_FILES_ONLY]`, and `[RECENTLY_MODIFIED_HOT_FILES]`.
+4. Appends prioritized `[ACTIVE_FILE_SIGNATURES]` and bottom-anchored `[PINNED_USER_INVARIANTS]`.
+
+### Anti-Overcorrection Guard & Clean-Pass Restraint
+When telemetry logs show all tests and commands passing cleanly (`[TELEMETRY_HEALTH: CLEAN_PASSING]`):
+- An explicit **Anti-Overcorrection Guard** is injected instructing the model never to invent phantom bugs, critique working code, or propose unsolicited refactors.
+- 20% of training dataset pairs are synthesized as clean-state tasks where edge cases emit a concise **Minimal Intervention Lock**.
+
+### Log-Driven Hot-File Tracker (`pcompile/evictor.py`)
+Scans the last 5 turns for file mutation tool calls (`edit_file`, `write_file`, etc.) and renders `[RECENTLY_MODIFIED_HOT_FILES]`:
+- Prioritizes hot modified files at the top of `[ACTIVE_FILE_SIGNATURES]`.
+- Injects a **Zero-Scan Lock** into compiled prompts to prevent LLMs from running broad directory scans (`find`, `list_dir`).
 
 ### Deep Hugging Face Solution Constraint Extractor (`training/hf_extractor.py`)
 Inspects both instructions and reference solutions in Hugging Face coding datasets to infer task-specific constraints:

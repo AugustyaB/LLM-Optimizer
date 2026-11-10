@@ -52,14 +52,23 @@
 - [x] Write comprehensive unit test suite and verify 100% pass rate (`tests/test_phase6_perfection.py`)
 - [x] Phase 6 verification gate & git commit/tag (`phase-6-complete`)
 
-## Phase 7: Deep Hugging Face Dataset Extractor & LLM Verification Suite (`phase-7-llm-verification`)
+## Phase 7: Zero-Waste LLM Trimming, Anti-Overcorrection Guard, Hot-File Tracker & 4-Gate Evaluator (`phase-7-llm-verification`)
+- [x] Zero-waste LLM output trimming (training outputs contain only generative sections; CPU sandwich appends deterministic blocks)
+- [x] Instant CPU fast-path for STEP mode (`pcompile --step` runs <20 ms CPU bypass unless `--force-llm`)
+- [x] Zone A consecutive turn deduplication (collapse consecutive matching turns into `... (xN)`)
+- [x] Telemetry health signal (`CLEAN_PASSING` vs `ERROR_DETECTED`) and Anti-Overcorrection Guard preventing false-positive critiques
+- [x] 20% clean-state Minimal Intervention Lock training pairs (`index % 5 == 0`)
+- [x] Schema validation and fallback circuit breaker (`validate_llm_output`) in `pcompile/sandwich.py` and `pcompile/cli.py`
+- [x] Log-driven hot-file tracker (`recently_modified_files`) and `[RECENTLY_MODIFIED_HOT_FILES]` block in `pcompile/evictor.py`
+- [x] Active file signature prioritization for hot modified files in `pcompile/signature_extractor.py`
+- [x] Zero-scan lock added to compiled prompts preventing broad directory scans
 - [x] Deep Hugging Face prompt & solution constraint extractor (`training/hf_extractor.py`)
 - [x] Ingest both instruction and reference code to infer task-specific constraints (exceptions, memory bounds, locks, type safety)
 - [x] Force-regeneration of dataset on disk when `--use-hf` is enabled (`training/train_qlora.py`)
 - [x] Leading `<think>...</think>` reasoning tag stripping in hybrid sandwich compiler (`pcompile/sandwich.py`)
-- [x] Training metrics telemetry (`outputs/training_metrics.json`) recording initial/final loss, steps, and model metadata (`training/train_qlora.py`)
-- [x] Automated 4-gate model verification suite and scorecard CLI (`training/evaluate_model.py`)
+- [x] Training metrics telemetry (`outputs/training_metrics.json`) recording initial/final loss, steps, and model metadata
+- [x] Automated 4-gate model verification suite and scorecard CLI with clean-pass restraint audit (`training/evaluate_model.py`)
 - [x] Side-by-side `--compare` mode in ephemeral CLI comparing CPU baseline against Neural output (`pcompile/cli.py`)
-- [x] Comprehensive unit test suite with 100% pass rate (`tests/test_phase7_evaluation.py`)
+- [x] Comprehensive unit test suite with 107/107 passing tests (`tests/test_phase7_evaluation.py`)
 - [x] Strict anti-monolith verification keeping all modules under 280 lines
 - [x] Phase 7 verification gate & git commit/tag (`phase-7-complete`)
